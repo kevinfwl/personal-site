@@ -14,7 +14,7 @@ z-index: -1;
 }
 
 .title {
-  margin-left: 30px;
+  margin-left: 40px;
   color: white;
 }
 
@@ -49,6 +49,7 @@ z-index: -1;
   display: flex;
   align-items: center;
   margin-left: 0 !important; 
+  padding-right: 70px !important;
 }
 
 #alg-description {
@@ -68,6 +69,10 @@ z-index: -1;
 
 #alg-description-body {
   font-size: 0.7em;
+}
+
+#intro {
+  font-weight: 225;
 }
 
 .icon-links {
@@ -109,6 +114,8 @@ i {
 
   .container {
     text-align: center !important;
+    margin: 0 !important;
+    padding: 0 15px !important;
   }
 
   .title {
