@@ -25,8 +25,8 @@ layout: home
                 <a class="links" href="{% link projects.md %}">Projects</a>
                 <a class="links" href="assets/Resume.pdf">Resume</a>
             </div>
-            <div id="icon-link-section">
-                <a class="icon-links" href="mailto:kevinfeng1999@gmail.com">    
+            <div id="icon-link-section">    
+                <a class="icon-links icon-links-first" href="mailto:kevinfeng1999@gmail.com">    
                     <i class="fas fa-envelope"><span aria-hidden="false"></span></i>
                 </a>
                 <a class="icon-links" href="https://github.com/kevinfwl">
@@ -54,9 +54,9 @@ layout: home
             let greeting = document.getElementById("greeting");
             let hour = new Date().getHours();
             console.log(hour)
-            if (4 <= hour && hour < 12) greeting.innerHTML = "Good Morning!"
-            else if (12 <= hour && hour < 18) greeting.innerHTML = "Good Afternoon!"
-            else greeting.innerHTML = "Good Evening!"
+            if (4 <= hour && hour < 12) greeting.innerHTML = "Good Morning! 👋"
+            else if (12 <= hour && hour < 18) greeting.innerHTML = "Good Afternoon! 👋"
+            else greeting.innerHTML = "Good Evening! 👋"
         }
         setGreeting();
     </script>

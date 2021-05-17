@@ -3,7 +3,7 @@ html, body, canvas {
   height: 100%;
   margin: 0px;
   padding: 0px;
-  font-size: 1.1em;
+  font-size: 1.20em;
 }
 
 canvas {
@@ -73,6 +73,11 @@ z-index: -1;
 
 #intro {
   font-weight: 225;
+}
+
+
+.icon-links-first {
+  padding-left: 0em !important;
 }
 
 .icon-links {
