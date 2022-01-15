@@ -7,10 +7,10 @@ html, body, canvas {
 }
 
 canvas {
-position: fixed;
-bottom: 0;
-right: 0;
-z-index: -1;
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  z-index: -1;
 }
 
 .title {
@@ -44,12 +44,11 @@ z-index: -1;
 }
 
 .container {
-  justify-content: center;
   height: 100%;
   display: flex;
   align-items: center;
-  margin-left: 0 !important; 
-  padding-right: 70px !important;
+  /* margin-left: 0 !important; 
+  padding-right: 70px !important; */
 }
 
 #alg-description {
@@ -73,6 +72,8 @@ z-index: -1;
 
 #intro {
   font-weight: 225;
+  font-size: 1.2em !important;
+  text-shadow: 2px 2px black;
 }
 
 
@@ -90,20 +91,24 @@ z-index: -1;
 
 .icon-links:hover{
   opacity: 0.5;
-  color: grey;
+  color: black;
+  background-color: red !important;
 }
 
 i {
   height: 100%;
   width: 100%;
 }
-  
-#icon-link-section {
-  padding-top: 1em;
-}
 
 /* watch for screen changes */
-@media(max-width: 600px) {
+@media(max-width: 800px) {
+
+  /* make all the display container with words + buttons centered  */
+  body {
+    display: flex !important;
+    justify-content: center !important;
+  }
+
   html {
     font-size: 1em;  
   }
@@ -118,6 +123,7 @@ i {
   }
 
   .container {
+    
     text-align: center !important;
     margin: 0 !important;
     padding: 0 15px !important;

@@ -15,19 +15,25 @@ layout: home
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/all.css" rel="stylesheet" crossorigin="anonymous">
 
     <title>{{page.title}}</title>
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FSELYGE5F1"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-FSELYGE5F1');
+    </script>
 </head> 
 <body>
     <div class="container">
         <div class="title">
             <div id="greeting"></div>
             <div id="intro">{{ content }}</div>
-            <div id="button-link-section">
-                <a class="links" href="{% link projects.md %}">Projects</a>
-                <a class="links" href="assets/Resume.pdf">Resume</a>
-            </div>
             <div id="icon-link-section">    
                 <a class="icon-links icon-links-first" href="mailto:kevinfeng1999@gmail.com">    
-                    <i class="fas fa-envelope"><span aria-hidden="false"></span></i>
+                    <i class="fas fa-envelope fa-inverse"><span aria-hidden="false"></span></i>
                 </a>
                 <a class="icon-links" href="https://github.com/kevinfwl">
                     <i class="fab fa-github"><span aria-hidden="false"></span></i>
@@ -36,11 +42,10 @@ layout: home
                     <i class="fab fa-linkedin"><span aria-hidden="false"></span></i>
                 </a>
                 <a class="icon-links" href="assets/Resume.pdf">
-                    <i class="fas fa-file"><span aria-hidden="false"></span></i>
-                </a>        
+                    <i class="fas fa-file-alt"><span aria-hidden="false"></span></i>
+                </a>  
             </div>
         </div>
-
 
         <canvas id="grid"></canvas>
         <div id="alg-description">
