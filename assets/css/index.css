@@ -47,8 +47,6 @@ canvas {
   height: 100%;
   display: flex;
   align-items: center;
-  /* margin-left: 0 !important; 
-  padding-right: 70px !important; */
 }
 
 #alg-description {
@@ -91,8 +89,7 @@ canvas {
 
 .icon-links:hover{
   opacity: 0.5;
-  color: black;
-  background-color: red !important;
+  color: grey;
 }
 
 i {

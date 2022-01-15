@@ -32,30 +32,4 @@ layout: default
         </a>
         {% endfor %}
     </div>
-    <!-- <div class="project-heading">
-        IN PROGRESS
-    </div>
-    <div class="row">
-        {% for project in site.projects_in_progress %}
-        {% assign technologies = project.Technologies | split: ", " %}
-        <a href="{{project.link}}" class="col-lg-4 col-md-6 col-sm-12 col-12 project-item">
-            <div class="card">
-                <img class="card-img-top" src="{{project.img | relative_url}}" alt="Card image cap">
-                <div class="card-body project-card">
-                    <h5 class="card-title project-title">{{project.title}}</h5>
-                    <div class="project-description">{{project}}</div>
-                </div>
-                <div class="technologies">
-                    {% for technology in technologies%}
-                        {% if technology == "C++" %}
-                            <span class="technology-item {{"cpp" | downcase }}">{{ technology }}</span>
-                        {% else %}
-                            <span class="technology-item {{technology | downcase }}">{{ technology }}</span>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-            </div>
-        </a>
-        {% endfor %}
-    </div> -->
 </div>
