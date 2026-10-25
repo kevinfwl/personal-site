@@ -1,36 +1,235 @@
-// Preserve the algorithms' relative pacing at 3x speed, batching small steps
-// within animation frames so the browser's minimum timeout does not slow them.
-const GENERATION_SPEED = 3;
-let generationStep = null;
-let generationDue = 0;
-let generationFrame = null;
-let processingGeneration = false;
-function scheduleGenerationStep(callback, delay) {
-  if (!processingGeneration) generationDue = performance.now();
-  generationDue += delay / GENERATION_SPEED;
-  generationStep = callback;
-  if (!processingGeneration && generationFrame === null) {
-    generationFrame = requestAnimationFrame(runGenerationSteps);
+const GENERATION_DURATION_MS = 5000;
+const SOLVE_DURATION_MS = 5000;
+const CYCLE_PAUSE_MS = 3000;
+const PATH_COLOR = "#1b1b1b";
+const BLOCK_COLOR = "#0f0f0f";
+const STANDBY_COLOR = "#3d0b0b";
+const SEARCHED_COLOR = "#0c1f29";
+const FINAL_PATH_COLOR = "#0f2e0d";
+const ctx = document.getElementById("grid").getContext("2d");
+const DIRECTIONS = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+let nodeSize = 10;
+let nextAlgorithm = 0;
+let animationFrame = null;
+let cycleTimer = null;
+
+function shuffle(items) {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  return items;
+}
+
+function neighbors(grid, x, y, distance = 2) {
+  return DIRECTIONS.map(([dx, dy]) => [x + dx * distance, y + dy * distance])
+    .filter(([nx, ny]) => nx > 0 && ny > 0 && nx < grid[0].length - 1 && ny < grid.length - 1);
+}
+
+function carve(grid, steps, x, y) {
+  if (!grid[y][x]) {
+    grid[y][x] = true;
+    steps.push([x, y, PATH_COLOR]);
   }
 }
-function runGenerationSteps(now) {
-  generationFrame = null;
-  processingGeneration = true;
-  let steps = 0;
-  while (generationStep && generationDue <= now && steps++ < 1000) {
-    const step = generationStep;
-    generationStep = null;
-    step();
+
+function connect(grid, steps, from, to) {
+  carve(grid, steps, ...from);
+  carve(grid, steps, (from[0] + to[0]) / 2, (from[1] + to[1]) / 2);
+  carve(grid, steps, ...to);
+}
+
+function generateBacktrack(grid, steps) {
+  const stack = [[1, 1]];
+  carve(grid, steps, 1, 1);
+  while (stack.length) {
+    const cell = stack[stack.length - 1];
+    const choices = neighbors(grid, ...cell).filter(([x, y]) => !grid[y][x]);
+    if (!choices.length) {
+      stack.pop();
+      continue;
+    }
+    const next = choices[Math.floor(Math.random() * choices.length)];
+    connect(grid, steps, cell, next);
+    stack.push(next);
   }
-  processingGeneration = false;
-  if (generationStep) generationFrame = requestAnimationFrame(runGenerationSteps);
 }
-const PATH=" ",WALL="#",SEARCH_PATH="=";var NODE_SIZE=10;const PATH_COLOR="#1b1b1b",BLOCK_COLOR="#0f0f0f",STANDBY_COLOR="#3d0b0b",SEARCHED_COLOR="#0c1f29",FINAL_PATH_COLOR="#0f2e0d",ctx=document.getElementById("grid").getContext("2d");var state,numNodes=0,needResizing=!1,curMazeGenAlgo=0;function Point(e,t){this.x=e,this.y=t}function Tree(e,t){this.x=e,this.y=t,this.parent=void 0}function Edge(e,t,n){this.weight=n,this.node1=e,this.node2=t,this.node1.edges.push(this),this.node2.edges.push(this)}function Node(e){this.key=numNodes++,this.val=e,this.edges=[]}function KeyVal(e,t){this.w=e,this.val=t}function PriorityQueue(){this.queue=[]}function createArray(e,t){array=new Array;for(var n=0;n<t;n++){array.push([]);for(var i=0;i<e;i++)array[n].push("#")}return array}function shuffle(e){for(var t=e.length-1;t>0;t--){var n=Math.floor(Math.random()*(t+1)),i=e[t];e[t]=e[n],e[n]=i}}function print(e){for(var t=0;t<e.length;t++)console.log(e[t].join(""))}function getNeighbours(e,t,n,i){let o=[];for(var r=0;r<n.length;r++){var s=n[r].x+e.x,l=n[r].y+e.y;s>0&&l>0&&s<t[0].length-1&&l<t.length-1&&t[l][s]==i&&o.push(new Point(s,l))}return o}function arrayToGraph(e){let t=[];for(let n=0;n<e.length;n++){t.push([]);for(let i=0;i<e[0].length;i++)t[n].push(new Node(new Point(i,n)))}for(let n=1;n<t.length-1;n++)for(let i=1;i<t[0].length-1;i++)e[n][i]==PATH&&(e[n+1][i]==PATH&&t[n][i].connect(t[n+1][i],1),e[n][i+1]==PATH&&t[n][i].connect(t[n][i+1],1));return[t[1][1],t[t.length-2][t[0].length-2]]}function chooseMazeGen(e,t,n){
-  e=createArray(e[0].length,e.length);
-  const algorithms=[kruskalsUI,primsUI,backtrackUI];
-  const generate=algorithms[curMazeGenAlgo];
-  curMazeGenAlgo=(curMazeGenAlgo+1)%algorithms.length;
-  setTimeout(()=>{fillGrid(t,BLOCK_COLOR);generate(e,t,n)},3000);
+
+function generatePrim(grid, steps) {
+  carve(grid, steps, 1, 1);
+  const frontier = neighbors(grid, 1, 1);
+  while (frontier.length) {
+    const index = Math.floor(Math.random() * frontier.length);
+    const cell = frontier[index];
+    frontier[index] = frontier[frontier.length - 1];
+    frontier.pop();
+    if (grid[cell[1]][cell[0]]) continue;
+    const adjacent = neighbors(grid, ...cell);
+    const connected = adjacent.filter(([x, y]) => grid[y][x]);
+    connect(grid, steps, connected[Math.floor(Math.random() * connected.length)], cell);
+    frontier.push(...adjacent.filter(([x, y]) => !grid[y][x]));
+  }
 }
-function chooseMazeSolve(e,t,n){AStarUI(e,t,n)}
-function choose(){}function setNodeSize(){NODE_SIZE=window.innerHeight>=2e3&&window.innerWidth>=4e3?20:window.innerHeight<=2e3&&window.innerWidth<=4e3?10:15}function fillGrid(e,t){e.fillStyle=t,e.fillRect(0,0,e.canvas.width,e.canvas.height)}function initGrid(){setNodeSize();let e=window.innerWidth+NODE_SIZE-window.innerWidth%NODE_SIZE,t=window.innerHeight+NODE_SIZE-window.innerHeight%NODE_SIZE;console.log("Grid: ",e,t),e%(2*NODE_SIZE)==0&&(e+=NODE_SIZE),t%(2*NODE_SIZE)==0&&(t+=NODE_SIZE),ctx.canvas.width=e,ctx.canvas.height=t,fillGrid(ctx,BLOCK_COLOR)}function backtrackUI(e,t,n){let i=[new Point(1,1)],o=[new Point(0,2),new Point(0,-2),new Point(2,0),new Point(-2,0)],r=i[0];t.fillStyle=PATH_COLOR,function s(){if(needResizing)initAnimation();else if(0!=i.length){var l=!1;shuffle(o);for(var h=0;h<o.length;h++){var u=r.x+o[h].x,a=r.y+o[h].y;if(u>0&&a>0&&u<e[0].length-1&&a<e.length-1&&"#"==e[a][u]){for(var c=Math.min(u,r.x);c<=Math.max(u,r.x);c++)e[a][c]=" ",t.fillRect(c*n,a*n,n,n);for(var f=Math.min(a,r.y);f<=Math.max(a,r.y);f++)e[f][u]=" ",t.fillRect(u*n,f*n,n,n);r=new Point(u,a),i.push(r),l=!0;break}}l?scheduleGenerationStep(s,15):(r=i.pop(),scheduleGenerationStep(s,1))}else chooseMazeSolve(e,t,NODE_SIZE)}()}function primsUI(e,t,n){var i=new Point(1,1),o=[new Point(1,3),new Point(3,1)],r=[new Point(0,2),new Point(0,-2),new Point(2,0),new Point(-2,0)];e[1][1]=PATH,t.fillStyle=PATH_COLOR,shuffle(o),function s(){let l=!1;if(needResizing)initAnimation();else if(o.length){if(i=o.shift(),shuffle(r),e[i.y][i.x]!=PATH){var h=getNeighbours(i,e,r,PATH),u=getNeighbours(i,e,r,WALL);if(0!=h.length){let o=h[0].x,r=h[0].y;for(var a=Math.min(o,i.x);a<=Math.max(o,i.x);a++)e[r][a]=PATH,t.fillRect(a*n,r*n,n,n);for(var c=Math.min(r,i.y);c<=Math.max(r,i.y);c++)e[c][o]=PATH,t.fillRect(o*n,c*n,n,n);l=!0}shuffle(o=o.concat(u))}l?scheduleGenerationStep(s,15):scheduleGenerationStep(s,1)}else chooseMazeSolve(e,t,NODE_SIZE)}()}function kruskalsUI(e,t,n){let i=[],o=[];for(let e=0;e<array.length;e++){o.push([]);for(let t=0;t<array[0].length;t++)o[e].push(new Tree(t,e)),e>0&&t>0&&e<array.length-1&&t<array[0].length-1&&(e%2==0&&t%2!=0||e%2!=0&&t%2==0)&&i.push(new Point(t,e))}t.fillStyle=PATH_COLOR,shuffle(i),function r(){let s=!1;if(needResizing)initAnimation();else if(i.length){let e=i.pop();if(e.x%2==0){if(!o[e.y][e.x-1].isConnected(o[e.y][e.x+1])){o[e.y][e.x-1].connect(o[e.y][e.x+1]);for(let i=-1;i<=1;i++)array[e.y][e.x+i]=PATH,t.fillRect((e.x+i)*n,e.y*n,n,n)}}else if(!o[e.y-1][e.x].isConnected(o[e.y+1][e.x])){o[e.y+1][e.x].connect(o[e.y-1][e.x]);for(let i=-1;i<=1;i++)array[e.y+i][e.x]=PATH,t.fillRect(e.x*n,(e.y+i)*n,n,n);s=!0}s?scheduleGenerationStep(r,15):scheduleGenerationStep(r,1)}else chooseMazeSolve(e,t,NODE_SIZE)}()}function AStarUI(e,t,n,i){document.getEleme;let o=arrayToGraph(e),r=o[0],s=o[1],l=new PriorityQueue,h={};function u(e,t,n){this.w=e,this.last=t,this.cur=n}h[r.key]=new u(0,r,r),l.insert(new KeyVal(0,h[r.key])),function i(){if(needResizing)initAnimation();else if(l.isEmpty())chooseMazeGen(e,t,NODE_SIZE);else{let a=l.deleteMax().val;if(h[a.cur.key]=a,t.fillStyle=SEARCHED_COLOR,t.fillRect(a.cur.val.x*n,a.cur.val.y*n,n,n),a.cur===s){let i=function(e,t){let n=[],i=t;for(;n.unshift(i),i!==e;){if(!h[i.key])return[];i=h[i.key].last}return n}(r,s);return void setTimeout(function i(o,r){needResizing?initAnimation():r<o.length?(t.fillStyle=FINAL_PATH_COLOR,t.fillRect(o[r].val.x*n,o[r].val.y*n,n,n),setTimeout(()=>{i(o,r+1)},10)):chooseMazeGen(e,t,NODE_SIZE)}(i,0),10)}let c=a.cur.getNeighbors();for(let e=0;e<c.length;e++){let i=Math.min(c[e].edge.map(e=>e.weight)),r=c[e].node;h[r.key]||(l.insert(new KeyVal(a.w,new u(a.w+i+o[1].val.x-r.val.x+o[1].val.y-r.val.y,a.cur,r))),t.fillStyle=STANDBY_COLOR,t.fillRect(r.val.x*n,r.val.y*n,n,n))}setTimeout(i,10)}}()}function initAnimation(){initGrid(),needResizing=!1,chooseMazeGen(state=createArray(ctx.canvas.width/NODE_SIZE,ctx.canvas.height/NODE_SIZE),ctx,NODE_SIZE)}Tree.prototype.getRoot=function(){return this.parent?this.parent.getRoot():this},Tree.prototype.connect=function(e){e.getRoot().parent=this},Tree.prototype.isConnected=function(e){return e.getRoot()==this.getRoot()},Edge.prototype.disconnect=function(){for(let e=0;e<this.node1.edges.length;e++)if(this.node1.edges[e]===this){this.node1.edges.splice(e,1);break}for(let e=0;e<this.node2.edges.length;e++)if(this.node2.edges[e]===this){this.node2.edges.splice(e,1);break}},Node.prototype.connect=function(e,t){return new Edge(this,e,t)},Node.prototype.getNeighbors=function(){let e={};for(let t=0;t<this.edges.length;t++){let n=this.edges[t].node1===this?this.edges[t].node2:this.edges[t].node1;null==e[n.key]?e[n.key]={edge:[this.edges[t]],node:n}:e[n.key].edge.push(this.edges[t])}return Object.values(e)},Node.prototype.disconnectByEdge=function(e){e.disconnect()},Node.prototype.disconnectByNode=function(e){this.edges.forEach(t=>{t.node1!==e&&t.node2!==e||t.disconnect()})},Node.prototype.disconnectAll=function(e){this.edges.forEach(e=>{e.disconnect()})},PriorityQueue.prototype.isEmpty=function(){return 0==this.queue.length},PriorityQueue.prototype.insert=function(e){this.queue.push(e);let t=this.queue.length-1;for(;this.queue[t].w<this.queue[Math.floor(t/2)].w;){let e=this.queue[t];this.queue[t]=this.queue[Math.floor(t/2)],this.queue[Math.floor(t/2)]=e,t=Math.floor(t/2)}},PriorityQueue.prototype.deleteMax=function(){let e=this.queue[0],t=0,n=this.queue.pop();for(0!=this.queue.length&&(this.queue[0]=n);2*t<this.queue.length;){let e=2*t;if(2*t+1<this.queue.length&&this.queue[2*t+1].w<this.queue[e].w&&(e=2*t+1),!(this.queue[e].w<this.queue[t].w))break;{let n=this.queue[t];this.queue[t]=this.queue[e],this.queue[e]=n,t=e}}return e},initAnimation(),window.onresize=function(){needResizing=!0};
+
+function generateKruskal(grid, steps) {
+  const width = grid[0].length;
+  const parent = Array.from({ length: width * grid.length }, (_, i) => i);
+  const rank = new Uint8Array(parent.length);
+  const edges = [];
+  function root(id) {
+    while (parent[id] !== id) {
+      parent[id] = parent[parent[id]];
+      id = parent[id];
+    }
+    return id;
+  }
+  for (let y = 1; y < grid.length - 1; y += 2) {
+    for (let x = 1; x < width - 1; x += 2) {
+      if (x + 2 < width - 1) edges.push([[x, y], [x + 2, y]]);
+      if (y + 2 < grid.length - 1) edges.push([[x, y], [x, y + 2]]);
+    }
+  }
+  for (const [from, to] of shuffle(edges)) {
+    let a = root(from[1] * width + from[0]);
+    let b = root(to[1] * width + to[0]);
+    if (a === b) continue;
+    if (rank[a] < rank[b]) [a, b] = [b, a];
+    parent[b] = a;
+    if (rank[a] === rank[b]) rank[a]++;
+    connect(grid, steps, from, to);
+  }
+  // A tiny viewport can contain just one maze cell.
+  carve(grid, steps, 1, 1);
+}
+
+class MinHeap {
+  constructor() { this.items = []; }
+  push(item) {
+    const items = this.items;
+    let index = items.length;
+    items.push(item);
+    while (index > 0) {
+      const parent = Math.floor((index - 1) / 2);
+      if (items[parent].priority <= item.priority) break;
+      items[index] = items[parent];
+      index = parent;
+    }
+    items[index] = item;
+  }
+  pop() {
+    const items = this.items;
+    const first = items[0];
+    const last = items.pop();
+    if (items.length) {
+      let index = 0;
+      while (2 * index + 1 < items.length) {
+        let child = 2 * index + 1;
+        if (child + 1 < items.length && items[child + 1].priority < items[child].priority) child++;
+        if (items[child].priority >= last.priority) break;
+        items[index] = items[child];
+        index = child;
+      }
+      items[index] = last;
+    }
+    return first;
+  }
+}
+
+function solveMaze(grid) {
+  const width = grid[0].length;
+  const height = grid.length;
+  const start = width + 1;
+  const goal = (height - 2) * width + width - 2;
+  const costs = new Float64Array(width * height).fill(Infinity);
+  const previous = new Int32Array(width * height).fill(-1);
+  const closed = new Uint8Array(width * height);
+  const frontier = new MinHeap();
+  const steps = [];
+  costs[start] = 0;
+  frontier.push({ id: start, priority: 0 });
+  while (frontier.items.length) {
+    const { id } = frontier.pop();
+    if (closed[id]) continue;
+    closed[id] = 1;
+    const x = id % width;
+    const y = Math.floor(id / width);
+    steps.push([x, y, SEARCHED_COLOR]);
+    if (id === goal) {
+      const path = [];
+      for (let cell = goal; cell !== -1; cell = previous[cell]) path.push(cell);
+      for (const cell of path.reverse()) {
+        steps.push([cell % width, Math.floor(cell / width), FINAL_PATH_COLOR]);
+      }
+      return steps;
+    }
+    for (const [nx, ny] of neighbors(grid, x, y, 1)) {
+      const next = ny * width + nx;
+      const cost = costs[id] + 1;
+      if (!grid[ny][nx] || closed[next] || cost >= costs[next]) continue;
+      costs[next] = cost;
+      previous[next] = id;
+      frontier.push({ id: next, priority: cost + width - 2 - nx + height - 2 - ny });
+      steps.push([nx, ny, STANDBY_COLOR]);
+    }
+  }
+  return steps;
+}
+
+// Precompute each phase so its entire step count fits the requested duration.
+// Elapsed-time playback batches steps per frame and avoids timer-clamping drift.
+function animateSteps(steps, duration, onComplete) {
+  const startedAt = performance.now();
+  let drawn = 0;
+  function frame(now) {
+    const progress = Math.min(1, Math.max(0, (now - startedAt) / duration));
+    const target = Math.floor(progress * steps.length);
+    while (drawn < target) {
+      const [x, y, color] = steps[drawn++];
+      ctx.fillStyle = color;
+      ctx.fillRect(x * nodeSize, y * nodeSize, nodeSize, nodeSize);
+    }
+    if (progress < 1) {
+      animationFrame = requestAnimationFrame(frame);
+    } else {
+      animationFrame = null;
+      onComplete();
+    }
+  }
+  animationFrame = requestAnimationFrame(frame);
+}
+
+function runCycle() {
+  cycleTimer = null;
+  const width = ctx.canvas.width / nodeSize;
+  const height = ctx.canvas.height / nodeSize;
+  const grid = Array.from({ length: height }, () => Array(width).fill(false));
+  const generationSteps = [];
+  const algorithms = [generateKruskal, generatePrim, generateBacktrack];
+  algorithms[nextAlgorithm](grid, generationSteps);
+  nextAlgorithm = (nextAlgorithm + 1) % algorithms.length;
+  const solveSteps = solveMaze(grid);
+  ctx.fillStyle = BLOCK_COLOR;
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  animateSteps(generationSteps, GENERATION_DURATION_MS, () => {
+    animateSteps(solveSteps, SOLVE_DURATION_MS, () => {
+      cycleTimer = setTimeout(runCycle, CYCLE_PAUSE_MS);
+    });
+  });
+}
+
+function initAnimation() {
+  cancelAnimationFrame(animationFrame);
+  clearTimeout(cycleTimer);
+  animationFrame = null;
+  nodeSize = window.innerHeight >= 2000 && window.innerWidth >= 4000 ? 20
+    : window.innerHeight <= 2000 && window.innerWidth <= 4000 ? 10 : 15;
+  const oddCells = pixels => Math.max(3, 2 * Math.floor((Math.floor(pixels / nodeSize) + 1) / 2) + 1);
+  ctx.canvas.width = oddCells(window.innerWidth) * nodeSize;
+  ctx.canvas.height = oddCells(window.innerHeight) * nodeSize;
+  ctx.fillStyle = BLOCK_COLOR;
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  cycleTimer = setTimeout(runCycle, CYCLE_PAUSE_MS);
+}
+
+initAnimation();
+window.onresize = initAnimation;
