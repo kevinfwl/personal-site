@@ -2,7 +2,6 @@
 layout: home
 ---
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,13 +10,11 @@ layout: home
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <link rel="shortcut icon" href="/assets/img/title-icon.png">
-    <link rel="stylesheet" href="/assets/css/index.css">
+    <link rel="stylesheet" href="/assets/css/index.css?v={{ site.time | date: '%s' }}">
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/all.css" rel="stylesheet" crossorigin="anonymous">
 
-
     <title>{{page.title}}</title>
-
 
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-FSELYGE5F1"></script>
@@ -25,7 +22,6 @@ layout: home
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-
 
     gtag('config', 'G-FSELYGE5F1');
     </script>
@@ -48,10 +44,8 @@ layout: home
             </div>
         </div>
 
-
         <canvas id="grid"></canvas> 
     </div>
-
 
     <script>
         var setGreeting = function () {
@@ -64,6 +58,6 @@ layout: home
         }
         setGreeting();
     </script>
-    <script src="/assets/js/graphUI.js"></script>
+    <script src="/assets/js/graphUI.js?v={{ site.time | date: '%s' }}"></script>
 </body> 
 </html>
