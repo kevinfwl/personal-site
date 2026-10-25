@@ -4,4 +4,4 @@ title: Kevin Feng
 permalink: "/"
 ---
 
-I'm Kevin, currently 4th year CS student [@UWaterloo](https://uwaterloo.ca/). I am interested in algorithms, designing scalable systems, and blockchain technologies. Let's connect!
+Hey there! I’m a software engineer based in Seattle, interested in building scalable systems for AI training and inference.
