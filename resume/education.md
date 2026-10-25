@@ -1,5 +1,0 @@
----
-university:
-graduation:
-program:
----
