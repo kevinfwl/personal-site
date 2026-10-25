@@ -1,17 +1,32 @@
 const GENERATION_DURATION_MS = 5000;
 const SOLVE_DURATION_MS = 5000;
 const CYCLE_PAUSE_MS = 3000;
-const PATH_COLOR = "#1b1b1b";
+const CELL_FADE_MS = 220;
+const RESET_FADE_MS = 900;
+const PATH_COLOR = "#171a1c";
 const BLOCK_COLOR = "#0f0f0f";
-const STANDBY_COLOR = "#3d0b0b";
-const SEARCHED_COLOR = "#0c1f29";
-const FINAL_PATH_COLOR = "#0f2e0d";
+const STANDBY_COLOR = "#1a2023";
+const SEARCHED_COLOR = "#1b2327";
+const FINAL_PATH_COLOR = "#23302d";
 const ctx = document.getElementById("grid").getContext("2d");
 const DIRECTIONS = [[0, 1], [0, -1], [1, 0], [-1, 0]];
 let nodeSize = 10;
 let nextAlgorithm = 0;
 let animationFrame = null;
 let cycleTimer = null;
+const displayedColors = new Map();
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+const colorChannels = new Map([BLOCK_COLOR, PATH_COLOR, STANDBY_COLOR, SEARCHED_COLOR, FINAL_PATH_COLOR]
+  .map(color => [color, [1, 3, 5].map(offset => parseInt(color.slice(offset, offset + 2), 16))]));
+
+function ease(progress) {
+  return progress * progress * (3 - 2 * progress);
+}
+
+function paintCell(x, y, channels) {
+  ctx.fillStyle = `rgb(${channels.map(Math.round).join(",")})`;
+  ctx.fillRect(x * nodeSize, y * nodeSize, nodeSize, nodeSize);
+}
 
 function shuffle(items) {
   for (let i = items.length - 1; i > 0; i--) {
@@ -176,21 +191,63 @@ function solveMaze(grid) {
 }
 
 // Precompute each phase so its entire step count fits the requested duration.
-// Elapsed-time playback batches steps per frame and avoids timer-clamping drift.
+// Each cell blends from its current color. Reserve the final fade interval so
+// even the last cell settles within the five-second phase, without timer drift.
 function animateSteps(steps, duration, onComplete) {
   const startedAt = performance.now();
+  const fadeDuration = Math.min(CELL_FADE_MS, duration);
+  const revealDuration = duration - fadeDuration;
+  const active = new Map();
   let drawn = 0;
   function frame(now) {
-    const progress = Math.min(1, Math.max(0, (now - startedAt) / duration));
-    const target = Math.floor(progress * steps.length);
-    while (drawn < target) {
-      const [x, y, color] = steps[drawn++];
-      ctx.fillStyle = color;
-      ctx.fillRect(x * nodeSize, y * nodeSize, nodeSize, nodeSize);
+    const elapsed = Math.max(0, now - startedAt);
+    function updateCell(key, transition, at) {
+      const progress = Math.min(1, Math.max(0, (at - transition.start) / fadeDuration));
+      const amount = ease(progress);
+      const channels = transition.from.map((value, i) => value + (transition.to[i] - value) * amount);
+      displayedColors.set(key, channels);
+      paintCell(transition.x, transition.y, channels);
+      if (progress === 1) active.delete(key);
     }
-    if (progress < 1) {
+    while (drawn < steps.length) {
+      const scheduledAt = steps.length > 1 ? drawn / (steps.length - 1) * revealDuration : 0;
+      if (scheduledAt > elapsed) break;
+      const [x, y, color] = steps[drawn++];
+      const key = y * ctx.canvas.width / nodeSize + x;
+      // A frontier cell may be visited before its previous blend completes.
+      // Continue from the interpolated color instead of flashing between states.
+      if (active.has(key)) updateCell(key, active.get(key), scheduledAt);
+      active.set(key, {
+        x, y, start: scheduledAt,
+        from: displayedColors.get(key) || colorChannels.get(BLOCK_COLOR),
+        to: colorChannels.get(color)
+      });
+    }
+    for (const [key, transition] of active) updateCell(key, transition, elapsed);
+    if (elapsed < duration) {
       animationFrame = requestAnimationFrame(frame);
     } else {
+      animationFrame = null;
+      onComplete();
+    }
+  }
+  animationFrame = requestAnimationFrame(frame);
+}
+
+// Fade the completed maze away during the existing pause, avoiding a hard reset.
+function fadeOutMaze(onComplete) {
+  const startedAt = performance.now();
+  let previousAmount = 0;
+  function frame(now) {
+    const progress = Math.min(1, Math.max(0, (now - startedAt) / RESET_FADE_MS));
+    const amount = ease(progress);
+    ctx.globalAlpha = previousAmount < 1 ? (amount - previousAmount) / (1 - previousAmount) : 1;
+    ctx.fillStyle = BLOCK_COLOR;
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.globalAlpha = 1;
+    previousAmount = amount;
+    if (progress < 1) animationFrame = requestAnimationFrame(frame);
+    else {
       animationFrame = null;
       onComplete();
     }
@@ -207,12 +264,18 @@ function runCycle() {
   const algorithms = [generateKruskal, generatePrim, generateBacktrack];
   algorithms[nextAlgorithm](grid, generationSteps);
   nextAlgorithm = (nextAlgorithm + 1) % algorithms.length;
-  const solveSteps = solveMaze(grid);
+  displayedColors.clear();
+  ctx.globalAlpha = 1;
   ctx.fillStyle = BLOCK_COLOR;
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  if (reducedMotion.matches) {
+    for (const [x, y, color] of generationSteps) paintCell(x, y, colorChannels.get(color));
+    return;
+  }
+  const solveSteps = solveMaze(grid);
   animateSteps(generationSteps, GENERATION_DURATION_MS, () => {
     animateSteps(solveSteps, SOLVE_DURATION_MS, () => {
-      cycleTimer = setTimeout(runCycle, CYCLE_PAUSE_MS);
+      cycleTimer = setTimeout(() => fadeOutMaze(runCycle), CYCLE_PAUSE_MS - RESET_FADE_MS);
     });
   });
 }
@@ -221,6 +284,8 @@ function initAnimation() {
   cancelAnimationFrame(animationFrame);
   clearTimeout(cycleTimer);
   animationFrame = null;
+  displayedColors.clear();
+  ctx.globalAlpha = 1;
   nodeSize = window.innerHeight >= 2000 && window.innerWidth >= 4000 ? 20
     : window.innerHeight <= 2000 && window.innerWidth <= 4000 ? 10 : 15;
   const oddCells = pixels => Math.max(3, 2 * Math.floor((Math.floor(pixels / nodeSize) + 1) / 2) + 1);
@@ -228,8 +293,10 @@ function initAnimation() {
   ctx.canvas.height = oddCells(window.innerHeight) * nodeSize;
   ctx.fillStyle = BLOCK_COLOR;
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  cycleTimer = setTimeout(runCycle, CYCLE_PAUSE_MS);
+  if (reducedMotion.matches) runCycle();
+  else cycleTimer = setTimeout(runCycle, CYCLE_PAUSE_MS);
 }
 
 initAnimation();
 window.onresize = initAnimation;
+reducedMotion.addEventListener("change", initAnimation);
