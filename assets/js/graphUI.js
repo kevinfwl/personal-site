@@ -1,5 +1,6 @@
-const GENERATION_DURATION_MS = 5000;
-const SOLVE_DURATION_MS = 5000;
+const GENERATION_DURATION_MS = 7000;
+const SOLVE_DURATION_MS = 7000;
+const GRID_SUBDIVISIONS = 3;
 const CYCLE_PAUSE_MS = 3000;
 const CELL_FADE_MS = 220;
 const RESET_FADE_MS = 900;
@@ -11,6 +12,8 @@ const FINAL_PATH_COLOR = "#23302d";
 const ctx = document.getElementById("grid").getContext("2d");
 const DIRECTIONS = [[0, 1], [0, -1], [1, 0], [-1, 0]];
 let nodeSize = 10;
+let gridColumns = 0;
+let gridRows = 0;
 let nextAlgorithm = 0;
 let animationFrame = null;
 let cycleTimer = null;
@@ -25,7 +28,10 @@ function ease(progress) {
 
 function paintCell(x, y, channels) {
   ctx.fillStyle = `rgb(${channels.map(Math.round).join(",")})`;
-  ctx.fillRect(x * nodeSize, y * nodeSize, nodeSize, nodeSize);
+  // Shared integer boundaries prevent seams when a cell is a third of a pixel size.
+  const left = Math.round(x * nodeSize);
+  const top = Math.round(y * nodeSize);
+  ctx.fillRect(left, top, Math.round((x + 1) * nodeSize) - left, Math.round((y + 1) * nodeSize) - top);
 }
 
 function shuffle(items) {
@@ -192,7 +198,7 @@ function solveMaze(grid) {
 
 // Precompute each phase so its entire step count fits the requested duration.
 // Each cell blends from its current color. Reserve the final fade interval so
-// even the last cell settles within the five-second phase, without timer drift.
+// even the last cell settles within the requested phase, without timer drift.
 function animateSteps(steps, duration, onComplete) {
   const startedAt = performance.now();
   const fadeDuration = Math.min(CELL_FADE_MS, duration);
@@ -213,7 +219,7 @@ function animateSteps(steps, duration, onComplete) {
       const scheduledAt = steps.length > 1 ? drawn / (steps.length - 1) * revealDuration : 0;
       if (scheduledAt > elapsed) break;
       const [x, y, color] = steps[drawn++];
-      const key = y * ctx.canvas.width / nodeSize + x;
+      const key = y * gridColumns + x;
       // A frontier cell may be visited before its previous blend completes.
       // Continue from the interpolated color instead of flashing between states.
       if (active.has(key)) updateCell(key, active.get(key), scheduledAt);
@@ -257,8 +263,8 @@ function fadeOutMaze(onComplete) {
 
 function runCycle() {
   cycleTimer = null;
-  const width = ctx.canvas.width / nodeSize;
-  const height = ctx.canvas.height / nodeSize;
+  const width = gridColumns;
+  const height = gridRows;
   const grid = Array.from({ length: height }, () => Array(width).fill(false));
   const generationSteps = [];
   const algorithms = [generateKruskal, generatePrim, generateBacktrack];
@@ -286,11 +292,15 @@ function initAnimation() {
   animationFrame = null;
   displayedColors.clear();
   ctx.globalAlpha = 1;
-  nodeSize = window.innerHeight >= 2000 && window.innerWidth >= 4000 ? 20
+  const baseNodeSize = window.innerHeight >= 2000 && window.innerWidth >= 4000 ? 20
     : window.innerHeight <= 2000 && window.innerWidth <= 4000 ? 10 : 15;
-  const oddCells = pixels => Math.max(3, 2 * Math.floor((Math.floor(pixels / nodeSize) + 1) / 2) + 1);
-  ctx.canvas.width = oddCells(window.innerWidth) * nodeSize;
-  ctx.canvas.height = oddCells(window.innerHeight) * nodeSize;
+  const oddCells = pixels => Math.max(3, 2 * Math.floor((Math.floor(pixels / baseNodeSize) + 1) / 2) + 1);
+  // Tripling each odd grid dimension preserves maze boundaries and gives exactly 9x cells.
+  gridColumns = oddCells(window.innerWidth) * GRID_SUBDIVISIONS;
+  gridRows = oddCells(window.innerHeight) * GRID_SUBDIVISIONS;
+  nodeSize = baseNodeSize / GRID_SUBDIVISIONS;
+  ctx.canvas.width = Math.round(gridColumns * nodeSize);
+  ctx.canvas.height = Math.round(gridRows * nodeSize);
   ctx.fillStyle = BLOCK_COLOR;
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   if (reducedMotion.matches) runCycle();
